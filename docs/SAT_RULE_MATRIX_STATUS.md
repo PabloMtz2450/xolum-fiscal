@@ -43,11 +43,19 @@
 - Factura global con RFC genérico nacional e InformacionGlobal.
 - Receptor extranjero / residencia fiscal en escenarios de exportación modelados.
 - Catálogos SAT mediante snapshots versionados con vigencia Desde/Hasta.
-- CSD: parseo, vigencia, número de certificado y verificación criptográfica del sello contra cadena original.
+- CSD: parseo, vigencia, NoCertificado SAT, RFC emisor y verificación criptográfica del sello contra cadena original.
 - XSD real con `xmllint-wasm`, bundles locales y dependencias precargadas.
 - Cancelación SAT motivos 01–04 y FolioSustitucion para motivo 01.
 - Contrato PAC: healthcheck, preflight, timbrado, cancelación y consulta de estado.
 - Gate de readiness para sandbox y producción.
+- XML CFDI 4.0 determinista para I/E/T/P sobre el modelo normalizado.
+- Cadena original mediante XSLT oficial SAT local ejecutado con `xsltproc --nonet`.
+- Firma RSA-SHA256 con llave privada CSD PEM o PKCS#8 DER cifrada.
+- Inserción del sello mediante re-render final, sin mutaciones posteriores.
+- Validación criptográfica sello/cadena/CSD antes del PAC.
+- Validación XSD del XML FINAL exacto.
+- Preflight PAC sobre el XML FINAL exacto.
+- Envío al PAC del mismo XML firmado, con clave de idempotencia SHA-256.
 
 ## Esquemas registrados
 
@@ -62,14 +70,17 @@
 
 Se eliminó la regla inicial que bloqueaba **todo** CFDI de Egreso sin CFDI relacionado. Esa regla era demasiado amplia: existen escenarios fiscales válidos de egreso sin relación inmediata, como descuentos globales sobre operaciones futuras. Las relaciones de egreso deben validarse según el escenario, no imponerse indiscriminadamente.
 
+También se corrigió la lectura de `NoCertificado`: el serial expuesto por Node puede venir codificado en hexadecimal y debe decodificarse al número SAT de 20 dígitos antes de compararlo.
+
 ## Pendientes antes del PRIMER TIMBRADO SANDBOX
 
 - Seleccionar PAC real y cargar credenciales sandbox.
 - Implementar el adaptador concreto del PAC seleccionado sobre `PacAdapter`.
 - Cargar snapshots reales de catálogos SAT vigentes.
 - Descargar/versionar bundles XSD oficiales y todas sus dependencias.
-- Conectar el generador final de XML, cadena original y sello al flujo.
-- Ejecutar `npm run typecheck` y `npm test` en un entorno con dependencias instaladas.
+- Descargar/versionar el XSLT oficial de cadena original CFDI 4.0 y sus dependencias locales.
+- Configurar un CSD de pruebas válido (certificado, llave privada y contraseña).
+- Ejecutar `npm run typecheck` y `npm test` en un entorno con dependencias instaladas y `xsltproc` disponible.
 - Mapear códigos de rechazo específicos del PAC seleccionado.
 
 ## Pendientes antes de PRODUCTION_READY
