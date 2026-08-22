@@ -5,6 +5,8 @@ export type FiscalParty = {
   name: string;
   fiscalRegime: string;
   postalCode: string;
+  foreignTaxId?: string;
+  fiscalResidenceCountry?: string;
 };
 
 export type FiscalTax = {
@@ -54,6 +56,12 @@ export type PaymentEntry = {
   relatedDocuments: PaymentRelatedDocument[];
 };
 
+export type GlobalInformation = {
+  periodicity: '01'|'02'|'03'|'04'|'05';
+  months: string;
+  year: number;
+};
+
 export type NormalizedCfdiDocument = {
   version: '4.0';
   type: CfdiType;
@@ -69,6 +77,9 @@ export type NormalizedCfdiDocument = {
   paymentMethod?: 'PUE' | 'PPD';
   paymentForm?: string;
   cfdiUse: string;
+  exportation?: '01'|'02'|'03'|'04';
+  confirmation?: string;
+  globalInformation?: GlobalInformation;
   issuer: FiscalParty;
   receiver: FiscalParty;
   concepts: FiscalConcept[];
