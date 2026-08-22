@@ -1,6 +1,6 @@
 # XOLUM Fiscal
 
-Plataforma modular para controlar el ciclo fiscal del documento sin obligar al cliente a reemplazar todos sus sistemas.
+Plataforma modular para transformar pedidos validados en CFDI sin volver a capturar la operación fiscal.
 
 ## Principios
 
@@ -11,62 +11,77 @@ Plataforma modular para controlar el ciclo fiscal del documento sin obligar al c
 
 ## Producto base
 
-XOLUM Fiscal funciona sin ERP y sin TMS. El núcleo contempla CFDI, notas de crédito, REP, cancelaciones, relaciones CFDI, estatus SAT, expediente fiscal, importación de XML y conciliación asistida.
+XOLUM Fiscal funciona sin ERP y sin TMS. Incluye **Sales Lite** como origen mínimo de facturación: clientes, artículos, pedidos, partidas, precios, impuestos y OC/posición por línea.
+
+La factura fiscal es una transformación bloqueada del pedido. El facturista puede revisar, validar y timbrar, pero no alterar conceptos, precios, impuestos o referencias fiscales en el último paso.
+
+El núcleo contempla CFDI 4.0, notas de crédito, REP/Pagos 2.0, cancelaciones, relaciones CFDI, expediente fiscal, importación de XML y conciliación asistida.
 
 ## Módulos y conectores opcionales
 
+- **XOLUM Addendas**: se vende por separado. Cada addenda se diseña, valida y versiona según el receptor.
 - **XOLUM TMS**: POD, evidencias y validación logística. Se contrata por separado.
-- **XOLUM Sales**: pedidos/cotizaciones para clientes sin ERP. Se contrata por separado.
+- **XOLUM Sales Pro**: CRM/cotizaciones/capacidades comerciales avanzadas; Sales Lite permanece incluido.
 - **XOLUM Connect**: ERP, PAC, correo, portales, APIs e importaciones.
-- **Conciliación bancaria**: por defecto asistida; sólo puede pasar a automática cuando las referencias disponibles permiten una identificación confiable del pago.
+- **Conciliación bancaria**: por defecto asistida; sólo puede pasar a automática cuando las referencias permiten identificar el pago de forma confiable.
 
-## Arquitectura objetivo
+## Arquitectura
 
 ```text
-ERP / XOLUM Sales / Captura directa
-              |
-              v
-        XOLUM Fiscal Core
-  CFDI | NC | REP | SAT | Addenda
-              |
-       +------+------+
-       |             |
-       v             v
-  PAC connector   XML import
+ERP / Sales Lite
        |
        v
-  Estatus SAT / cancelación
+Pedido fuente de verdad
+       |
+       v
+XOLUM Fiscal Core
+       |
+       +--> Reglas SAT / catálogos / complementos
+       +--> XML / XSD / cadena / CSD / sello
+       +--> PAC preflight
+       |
+       v
+PAC sandbox / producción
+       |
+       +--> timbrado
+       +--> cancelación
+       +--> estado SAT
 
 XOLUM TMS (opcional) -> POD/evidencias -> elegibilidad logística
 Banco (opcional)     -> movimientos -> conciliación asistida
+XOLUM Addendas       -> reglas particulares por receptor
 ```
 
-## Conectores
+## Validación fiscal
 
-Los proveedores externos deben implementar contratos internos para evitar acoplar el dominio a un PAC, banco, ERP o TMS específico.
+El timbrado trabaja en modo **fail closed**. Antes del PAC deben pasar:
 
-### PAC
+1. Datos y formato.
+2. Catálogos SAT vigentes.
+3. Reglas CFDI/Anexo 20.
+4. Cálculos e impuestos.
+5. CFDI relacionados.
+6. Complementos.
+7. XSD local/versionado.
+8. CSD, cadena original y sello.
+9. Preflight del PAC.
 
-Debe cubrir como mínimo timbrado, cancelación y consulta de estatus.
+Los errores se muestran de forma operativa y deben corregirse en el documento origen, no editando clandestinamente la factura final.
 
-### TMS
+## PAC
 
-Sólo se activa si el cliente contrata la integración. Fiscal consume estado de entrega y evidencias; TMS conserva la responsabilidad logística.
+El dominio no depende de un proveedor específico. El adaptador PAC contempla healthcheck, preflight, timbrado, cancelación y consulta de estado. Cada rechazo determinista debe convertirse en una prueba de regresión.
 
-### Conciliación
-
-El motor asigna confianza según importe, referencias y datos disponibles. No se debe aplicar un pago automáticamente únicamente por coincidencia de importe.
-
-## Estado actual
-
-Primera base estructural e interfaz de Centro de Control creada. Los conectores reales permanecen desacoplados y pendientes de seleccionar/configurar proveedor.
+Consulta `docs/PAC_CONNECTION_READINESS.md` antes de conectar un sandbox.
 
 ## Desarrollo local
 
 ```bash
 npm install
 cp .env.example .env.local
+npm run typecheck
+npm test
 npm run dev
 ```
 
-Nunca colocar credenciales reales en el repositorio.
+Nunca colocar credenciales, CSD o llaves privadas reales en el repositorio.
