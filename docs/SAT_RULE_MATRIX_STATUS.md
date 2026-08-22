@@ -21,55 +21,65 @@
 8. SIGNATURE
 9. PAC_PREFLIGHT
 
-## Reglas ejecutables incorporadas en core-1
+## Ruleset actual
+
+`2026.08.22-core-2`
+
+## Cobertura ejecutable actual
 
 - CFDI 4.0 obligatorio.
-- Formato RFC emisor/receptor.
-- CP receptor y lugar de expedición.
-- Conceptos obligatorios en I/E/T.
-- ClaveProdServ de 8 posiciones.
-- Cantidad positiva.
-- Importe = cantidad × valor unitario.
-- Descuento no mayor al importe.
-- SubTotal = suma de importes.
-- Coherencia ObjetoImp 01/02 con impuestos.
-- Total de I/E recalculado con descuentos, traslados y retenciones.
-- CFDI T con Total 0.
-- CFDI P con SubTotal/Total 0.
-- CFDI P con Moneda XXX.
-- CFDI P sin FormaPago/MetodoPago a nivel comprobante.
-- Pago 2.0 obligatorio en tipo P.
-- DoctoRelacionado obligatorio por pago.
-- UUID de documentos relacionados.
-- NumParcialidad entero positivo.
-- ImpSaldoAnt - ImpPagado = ImpSaldoInsoluto.
-- ImpPagado no puede exceder ImpSaldoAnt.
-- Monto de pago mayor a cero.
-- UUID válidos en CfdiRelacionados.
-- Egresos sin relación fiscal quedan bloqueados para revisión.
+- RFC emisor/receptor y CP/lugar de expedición.
+- Conceptos, ClaveProdServ, cantidad, importe y descuentos.
+- SubTotal y Total de I/E.
+- ObjetoImp e impuestos por concepto.
+- Cálculo base × TasaOCuota y manejo Exento.
+- Moneda / TipoCambio.
+- PPD -> FormaPago 99; PUE de ingreso no usa 99.
+- Traslado con Total 0 y sin FormaPago/MetodoPago.
+- Pago con SubTotal/Total 0, Moneda XXX y sin FormaPago/MetodoPago a nivel comprobante.
+- Pagos 2.0: Pago, DoctoRelacionado, UUID, parcialidad, saldos, Monto, MonedaP/TipoCambioP y EquivalenciaDR básica.
+- CFDI relacionados, UUID, c_TipoRelacion 01–07 y sustitución 04.
+- Exportacion requerida en el modelo CFDI 4.0.
+- Factura global con RFC genérico nacional e InformacionGlobal.
+- Receptor extranjero / residencia fiscal en escenarios de exportación modelados.
+- Catálogos SAT mediante snapshots versionados con vigencia Desde/Hasta.
+- CSD: parseo, vigencia, número de certificado y verificación criptográfica del sello contra cadena original.
+- XSD real con `xmllint-wasm`, bundles locales y dependencias precargadas.
+- Cancelación SAT motivos 01–04 y FolioSustitucion para motivo 01.
+- Contrato PAC: healthcheck, preflight, timbrado, cancelación y consulta de estado.
+- Gate de readiness para sandbox y producción.
 
-## Esquemas SAT registrados
+## Esquemas registrados
 
 - CFDI 4.0 — cfdv40.xsd
 - Pagos 2.0 — Pagos20.xsd
 - Detallista 1.3 — detallista.xsd
+- Carta Porte 3.1 — CartaPorte31.xsd
+- Comercio Exterior 2.0 — ComercioExterior20.xsd
+- Impuestos Locales — implocal.xsd
 
-## Pendientes que bloquean PRODUCTION_READY
+## Corrección de segunda revisión
 
-- Implementar carga/versionado automático de catálogos SAT con vigencia Desde/Hasta.
-- Incorporar matriz completa publicada para CFDI 4.0 y cada complemento.
-- Completar reglas de moneda/TipoCambio y límites de decimales.
-- Completar impuestos por concepto y totales con tolerancias oficiales.
-- Reglas específicas de Público en General, RFC genéricos y exportación.
-- Reglas completas de relaciones 01–07 y sustitución.
-- Matriz completa de Egreso según escenario fiscal.
-- Matriz completa de Traslado y Carta Porte cuando corresponda.
-- Matriz completa Pagos 2.0: Totales, impuestos DR/P, equivalencias y monedas.
-- Validación de CSD: vigencia, RFC, número de certificado, cadena original y sello.
-- Validador XSD real con caché local/versionado.
-- Integración sandbox con PAC elegido y mapeo de todos sus códigos de rechazo.
-- Corpus XML positivo/negativo para I/E/T/P.
-- Segunda revisión completa de reglas antes de producción.
+Se eliminó la regla inicial que bloqueaba **todo** CFDI de Egreso sin CFDI relacionado. Esa regla era demasiado amplia: existen escenarios fiscales válidos de egreso sin relación inmediata, como descuentos globales sobre operaciones futuras. Las relaciones de egreso deben validarse según el escenario, no imponerse indiscriminadamente.
+
+## Pendientes antes del PRIMER TIMBRADO SANDBOX
+
+- Seleccionar PAC real y cargar credenciales sandbox.
+- Implementar el adaptador concreto del PAC seleccionado sobre `PacAdapter`.
+- Cargar snapshots reales de catálogos SAT vigentes.
+- Descargar/versionar bundles XSD oficiales y todas sus dependencias.
+- Conectar el generador final de XML, cadena original y sello al flujo.
+- Ejecutar `npm run typecheck` y `npm test` en un entorno con dependencias instaladas.
+- Mapear códigos de rechazo específicos del PAC seleccionado.
+
+## Pendientes antes de PRODUCTION_READY
+
+- Completar la matriz específica y corpus de cada complemento declarado soportado en producción.
+- Profundizar Pagos 2.0 en Totales e impuestos DR/P para todos los escenarios tributarios soportados.
+- Validar límites/tolerancias dependientes de catálogos SAT con datos reales versionados.
+- Corpus XML positivo/negativo I/E/T/P y complementos habilitados.
+- Cero rechazos inesperados durante certificación sandbox.
+- Segunda revisión independiente final posterior a las pruebas PAC.
 
 ## Regla de regresión
 
@@ -79,6 +89,6 @@ Todo rechazo determinista del PAC que XOLUM pudo detectar antes de timbrar se co
 2. Regla local o corrección de regla existente.
 3. Test automatizado negativo.
 4. Test positivo del caso corregido.
-5. Registro del código SAT/PAC y versión de reglas.
+5. Registro del código SAT/PAC y versión de ruleset.
 
-No se permite cerrar un defecto fiscal sólo corrigiendo el XML manualmente.
+No se permite cerrar un defecto fiscal corrigiendo el XML manualmente.
