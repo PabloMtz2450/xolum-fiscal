@@ -1,6 +1,7 @@
 import type { ValidationReport } from '../prestamp-validation';
 import { REQUIRED_VALIDATION_LAYERS } from '../prestamp-validation';
 import { coreFiscalRules } from './core-rules';
+import { advancedFiscalRules } from './advanced-rules';
 import type { ExecutableFiscalRule, NormalizedCfdiDocument } from './model';
 
 export type PrestampDependencies = {
@@ -20,9 +21,9 @@ const missingLayer = (layer: typeof REQUIRED_VALIDATION_LAYERS[number], message:
 
 export class FiscalValidationEngine {
   constructor(
-    private readonly rules: ExecutableFiscalRule[] = coreFiscalRules,
+    private readonly rules: ExecutableFiscalRule[] = [...coreFiscalRules, ...advancedFiscalRules],
     private readonly deps: PrestampDependencies = {},
-    private readonly ruleSetVersion = '2026.08.21-core-1',
+    private readonly ruleSetVersion = '2026.08.22-core-2',
   ) {}
 
   async validate(document: NormalizedCfdiDocument): Promise<ValidationReport> {
