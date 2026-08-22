@@ -42,9 +42,11 @@ export function createWasmXsdValidator(store: XsdBundleStore, renderer: CfdiXmlR
           preload: bundle.preload ?? [],
         });
         if (!result.valid) {
-          const raw = Array.isArray(result.errors) ? result.errors : [];
-          if (!raw.length) findings.push(finding('XOL-XSD-002', `El XML no cumple el XSD ${schemaId}.`));
-          else for (const error of raw) findings.push(finding('XOL-XSD-002', String(error)));
+          if (!result.errors.length) findings.push(finding('XOL-XSD-002', `El XML no cumple el XSD ${schemaId}.`));
+          for (const error of result.errors) {
+            const location = error.loc ? ` (${error.loc.fileName}:${error.loc.lineNumber})` : '';
+            findings.push(finding('XOL-XSD-002', `${error.message}${location}`));
+          }
         }
       } catch (error) {
         findings.push(finding('XOL-XSD-003', `Falló la validación XSD ${schemaId}: ${error instanceof Error ? error.message : 'error desconocido'}`));
