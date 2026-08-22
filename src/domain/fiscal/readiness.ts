@@ -7,29 +7,36 @@ export type FiscalReadinessInput = {
   pacHealthcheckOk: boolean;
   pacPreflightAvailable: boolean;
   testsPassing: boolean;
+  certificationCorpusPassing?: boolean;
+  secondReviewComplete?: boolean;
 };
 
 export type FiscalReadinessReport = {
   readyForPacSandbox: boolean;
   readyForProduction: boolean;
-  blockers: string[];
+  sandboxBlockers: string[];
+  productionBlockers: string[];
 };
 
 export function evaluateFiscalReadiness(input: FiscalReadinessInput): FiscalReadinessReport {
-  const blockers: string[] = [];
-  if (!input.catalogsLoaded) blockers.push('Faltan snapshots versionados de catálogos SAT.');
-  if (!input.xsdBundlesLoaded) blockers.push('Faltan bundles XSD locales con dependencias.');
-  if (!input.csdConfigured) blockers.push('Falta configurar CSD válido para pruebas.');
-  if (!input.originalStringConfigured) blockers.push('Falta generador de cadena original/sello integrado al flujo.');
-  if (!input.pacConfigured) blockers.push('Falta configurar PAC sandbox y credenciales.');
-  if (!input.pacHealthcheckOk) blockers.push('El PAC sandbox no ha pasado healthcheck.');
-  if (!input.pacPreflightAvailable) blockers.push('El PAC seleccionado no tiene preflight integrado o equivalente.');
-  if (!input.testsPassing) blockers.push('La suite fiscal aún no está confirmada en verde.');
+  const sandboxBlockers: string[] = [];
+  if (!input.catalogsLoaded) sandboxBlockers.push('Faltan snapshots versionados de catálogos SAT.');
+  if (!input.xsdBundlesLoaded) sandboxBlockers.push('Faltan bundles XSD locales con dependencias.');
+  if (!input.csdConfigured) sandboxBlockers.push('Falta configurar CSD válido para pruebas.');
+  if (!input.originalStringConfigured) sandboxBlockers.push('Falta generador de cadena original/sello integrado al flujo.');
+  if (!input.pacConfigured) sandboxBlockers.push('Falta configurar PAC sandbox y credenciales.');
+  if (!input.pacHealthcheckOk) sandboxBlockers.push('El PAC sandbox no ha pasado healthcheck.');
+  if (!input.pacPreflightAvailable) sandboxBlockers.push('El PAC seleccionado no tiene preflight integrado o equivalente.');
+  if (!input.testsPassing) sandboxBlockers.push('La suite fiscal aún no está confirmada en verde.');
 
-  const readyForPacSandbox = blockers.filter((b) => !b.includes('PAC sandbox') && !b.includes('PAC seleccionado')).length === 0 && input.pacConfigured;
+  const productionBlockers = [...sandboxBlockers];
+  if (!input.certificationCorpusPassing) productionBlockers.push('El corpus de certificación I/E/T/P y complementos habilitados no está confirmado en verde.');
+  if (!input.secondReviewComplete) productionBlockers.push('Falta la segunda revisión independiente de la matriz fiscal y pruebas.');
+
   return {
-    readyForPacSandbox,
-    readyForProduction: blockers.length === 0,
-    blockers,
+    readyForPacSandbox: sandboxBlockers.length === 0,
+    readyForProduction: productionBlockers.length === 0,
+    sandboxBlockers,
+    productionBlockers,
   };
 }
