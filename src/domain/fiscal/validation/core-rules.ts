@@ -84,6 +84,10 @@ export const coreFiscalRules: ExecutableFiscalRule[] = [
     validate: ({ document }) => round(document.total) === 0 ? [] : [totalsError('XOL-CFDI-015', 'Un CFDI de traslado debe tener Total 0.', 'total')],
   },
   {
+    id: 'XOL-CFDI-015B', title: 'Traslado sin forma ni método de pago', appliesTo: ['T'], satReference: 'Anexo 20 / CFDI tipo Traslado',
+    validate: ({ document }) => !document.paymentForm && !document.paymentMethod ? [] : [error('XOL-CFDI-015B', 'Un CFDI de traslado no debe incorporar FormaPago ni MetodoPago.', 'paymentForm')],
+  },
+  {
     id: 'XOL-CFDI-016', title: 'Pago total cero', appliesTo: ['P'], satReference: 'Anexo 20 / TipoDeComprobante P',
     validate: ({ document }) => round(document.total) === 0 && round(document.subtotal) === 0 ? [] : [totalsError('XOL-CFDI-016', 'Un CFDI tipo Pago debe tener SubTotal y Total en 0.', 'total')],
   },
@@ -126,9 +130,5 @@ export const coreFiscalRules: ExecutableFiscalRule[] = [
   {
     id: 'XOL-REL-001', title: 'UUID CFDI relacionados', appliesTo: ['ALL'], satReference: 'Anexo 20 / CfdiRelacionados',
     validate: ({ document }) => (document.relatedCfdis ?? []).flatMap((g,gi)=>g.uuids.flatMap((id,ui)=>uuid.test(id) ? [] : [relationshipError('XOL-REL-001', 'UUID de CFDI relacionado inválido.', `relatedCfdis.${gi}.uuids.${ui}`)])),
-  },
-  {
-    id: 'XOL-EGRESO-001', title: 'Egreso debe tener soporte de relación cuando sustituye/bonifica', appliesTo: ['E'], satReference: 'Anexo 20 / CFDI relacionados',
-    validate: ({ document }) => (document.relatedCfdis?.length ?? 0) > 0 ? [] : [relationshipError('XOL-EGRESO-001', 'El egreso no tiene CFDI relacionados. Requiere revisión fiscal antes de timbrar.', 'relatedCfdis')],
   },
 ];
