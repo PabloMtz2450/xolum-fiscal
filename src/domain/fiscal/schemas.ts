@@ -17,6 +17,14 @@ export const fiscalSchemas: FiscalSchemaDefinition[] = [
     enabled: true,
   },
   {
+    id: 'PAGOS_2_0',
+    kind: 'COMPLEMENT',
+    namespace: 'http://www.sat.gob.mx/Pagos20',
+    xsdUrl: 'http://www.sat.gob.mx/sitio_internet/cfd/Pagos/Pagos20.xsd',
+    version: '2.0',
+    enabled: true,
+  },
+  {
     id: 'DETALLISTA',
     kind: 'COMPLEMENT',
     namespace: 'http://www.sat.gob.mx/detallista',
@@ -33,8 +41,9 @@ export type XmlValidationResult = {
 };
 
 /**
- * Adapter boundary. Production validation must use the SAT-published XSDs,
- * cached/versioned by deployment and periodically checked for upstream changes.
+ * Adapter boundary. Production validation must use SAT-published XSDs,
+ * cached and versioned by deployment. Never stamp when a required schema
+ * is unavailable or its integrity/version cannot be verified.
  */
 export interface XsdValidator {
   validate(xml: string, schemaIds: string[]): Promise<XmlValidationResult[]>;
