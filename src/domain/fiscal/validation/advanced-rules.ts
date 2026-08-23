@@ -1,6 +1,6 @@
 import type { ExecutableFiscalRule } from './model';
 import type { ValidationFinding } from '../prestamp-validation';
-import { D, add, div, mul, within } from '../fiscal-decimal';
+import { D, add, mul, within } from '../fiscal-decimal';
 
 const business = (code: string, message: string, field?: string, satReference?: string): ValidationFinding => ({
   layer: 'BUSINESS_RULE', severity: 'ERROR', code, field, message, satReference,
