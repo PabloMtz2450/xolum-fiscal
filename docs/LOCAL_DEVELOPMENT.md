@@ -13,7 +13,7 @@ Este entorno contiene únicamente datos ficticios. No utilizar CSD, contraseñas
 ## Rama
 
 ```powershell
-git checkout hardening/preproduction-security-v2
+git checkout dev/local-demo-environment
 git pull
 ```
 
@@ -25,7 +25,11 @@ Copy-Item .env.local.example .env.local
 npm run dev
 ```
 
-Abrir: http://localhost:3000
+Abrir la aplicación: http://localhost:3000
+
+Abrir diagnóstico local: http://localhost:3000/diagnostico
+
+La pantalla de diagnóstico muestra PostgreSQL, seed, Sales Lite, estados fiscales, Finkok DEMO, CSD, XSD/XSLT y pendientes de infraestructura con estados LISTO/PENDIENTE.
 
 PostgreSQL local queda publicado sólo para desarrollo en `localhost:54329`.
 
