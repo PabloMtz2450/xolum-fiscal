@@ -8,7 +8,12 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "local:up": "docker compose up -d postgres",
+    "local:down": "docker compose down",
+    "local:reset": "docker compose down -v && docker compose up -d postgres",
+    "local:logs": "docker compose logs -f postgres",
+    "local:check": "node scripts/local-db-check.mjs"
   },
   "dependencies": {
     "decimal.js": "10.6.0",
