@@ -58,7 +58,8 @@ export function logEvent(
   data: Record<string,unknown> = {},
 ): string {
   const correlationId = typeof data.correlationId === 'string' ? data.correlationId : randomUUID();
-  const record = JSON.stringify({ ts:new Date().toISOString(), level, event, correlationId, ...redact(data) });
+  const redactedData = redact(data) as Record<string,unknown>;
+  const record = JSON.stringify({ ts:new Date().toISOString(), level, event, correlationId, ...redactedData });
   if (level === 'error') console.error(record);
   else if (level === 'warn') console.warn(record);
   else console.log(record);
