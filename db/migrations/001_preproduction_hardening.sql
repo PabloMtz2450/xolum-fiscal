@@ -36,18 +36,22 @@ CREATE TABLE memberships (
 );
 CREATE INDEX memberships_user_idx ON memberships(user_id,tenant_id);
 
+-- sessions es tabla de frontera de autenticación. Se resuelve primero por token_hash;
+-- active_tenant_id + FK a memberships impiden seleccionar un tenant ajeno.
 CREATE TABLE sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   active_tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   token_hash char(64) NOT NULL UNIQUE,
   csrf_hash char(64) NOT NULL,
+  mfa_verified_at timestamptz,
   expires_at timestamptz NOT NULL,
   revoked_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   FOREIGN KEY(active_tenant_id,user_id) REFERENCES memberships(tenant_id,user_id) ON DELETE CASCADE
 );
 CREATE INDEX sessions_user_active_idx ON sessions(user_id,expires_at) WHERE revoked_at IS NULL;
+CREATE INDEX sessions_expiry_idx ON sessions(expires_at) WHERE revoked_at IS NULL;
 
 CREATE TABLE fiscal_documents (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -105,11 +109,9 @@ CREATE TABLE audit_log (
 CREATE INDEX audit_log_tenant_created_idx ON audit_log(tenant_id,created_at DESC);
 CREATE INDEX audit_log_correlation_idx ON audit_log(correlation_id);
 
--- Defensa en profundidad SaaS: toda tabla tenant-scoped queda protegida por RLS.
+-- RLS se activa en datos tenant-scoped DESPUÉS de resolver la sesión.
 ALTER TABLE memberships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE memberships FORCE ROW LEVEL SECURITY;
-ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sessions FORCE ROW LEVEL SECURITY;
 ALTER TABLE fiscal_documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE fiscal_documents FORCE ROW LEVEL SECURITY;
 ALTER TABLE stamp_attempts ENABLE ROW LEVEL SECURITY;
@@ -120,10 +122,6 @@ ALTER TABLE audit_log FORCE ROW LEVEL SECURITY;
 CREATE POLICY memberships_tenant_isolation ON memberships
   USING(tenant_id = nullif(current_setting('app.tenant_id',true),'')::uuid)
   WITH CHECK(tenant_id = nullif(current_setting('app.tenant_id',true),'')::uuid);
-
-CREATE POLICY sessions_tenant_isolation ON sessions
-  USING(active_tenant_id = nullif(current_setting('app.tenant_id',true),'')::uuid)
-  WITH CHECK(active_tenant_id = nullif(current_setting('app.tenant_id',true),'')::uuid);
 
 CREATE POLICY fiscal_tenant_isolation ON fiscal_documents
   USING(tenant_id = nullif(current_setting('app.tenant_id',true),'')::uuid)
