@@ -27,7 +27,7 @@ export interface PacAdapter {
   preflight(xml: string): Promise<PacRejection[]>;
   stamp(request: PacStampRequest): Promise<PacStampResult>;
   cancel(input: { uuid: string; reason: '01'|'02'|'03'|'04'; replacementUuid?: string; issuerRfc: string }): Promise<{ requestId: string; status: string; rawCode?: string }>;
-  status(input: { uuid: string; issuerRfc: string; receiverRfc?: string; total?: number }): Promise<{ satStatus: string; cancellable?: string; cancellationStatus?: string }>;
+  status(input: { uuid: string; issuerRfc: string; receiverRfc?: string; total?: string | number }): Promise<{ satStatus: string; cancellable?: string; cancellationStatus?: string }>;
 }
 
 export function pacPreflightValidator(adapter: PacAdapter, renderXml: () => Promise<string>) {
@@ -45,11 +45,11 @@ export function pacPreflightValidator(adapter: PacAdapter, renderXml: () => Prom
   };
 }
 
-/**
- * Todo rechazo determinista debe persistirse y convertirse en prueba de regresión.
- * Los adaptadores concretos jamás deben exponer un error crudo sin normalizar.
- */
+/** Todo rechazo determinista debe persistirse y convertirse en regresión. */
 export function normalizePacFailure(provider: string, error: unknown): PacRejection {
-  if (error instanceof Error) return { providerCode: `${provider}-UNMAPPED`, message: error.message, retryable: false };
-  return { providerCode: `${provider}-UNKNOWN`, message: 'Error no identificado del PAC.', retryable: false };
+  if (error instanceof Error) {
+    const retryable = /timeout|timed out|ECONNRESET|socket|network|aborted|EAI_AGAIN|ENOTFOUND/i.test(error.message);
+    return { providerCode: `${provider}-UNMAPPED`, message: error.message, retryable };
+  }
+  return { providerCode: `${provider}-UNKNOWN`, message: 'Error no identificado del PAC.', retryable: true };
 }

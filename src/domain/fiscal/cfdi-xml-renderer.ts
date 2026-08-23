@@ -1,6 +1,7 @@
 import type { FinalCfdiXmlRenderer, RenderContext } from './xml-signing-pipeline';
 import type { FiscalConcept, FiscalTax, NormalizedCfdiDocument, PaymentEntry } from './validation/model';
 import { schemaLocationFor } from './schemas';
+import { D, add, decimalText, moneyText, mul } from './fiscal-decimal';
 
 export interface ComplementXmlRenderer {
   id: string;
@@ -15,19 +16,17 @@ const esc = (value: string | number) => String(value)
   .replace(/'/g, '&apos;');
 
 const attr = (name: string, value: string | number | undefined) => value === undefined || value === '' ? '' : ` ${name}="${esc(value)}"`;
-const money = (n: number) => n.toFixed(2);
-const decimal = (n: number) => String(n);
 
 function renderConceptTax(tax: FiscalTax): string {
   const node = tax.kind === 'TRANSFER' ? 'cfdi:Traslado' : 'cfdi:Retencion';
-  return `<${node}${attr('Base', decimal(tax.base))}${attr('Impuesto', tax.tax)}${attr('TipoFactor', tax.factorType)}${tax.factorType === 'Exento' ? '' : attr('TasaOCuota', tax.rateOrQuota !== undefined ? decimal(tax.rateOrQuota) : undefined)}${tax.factorType === 'Exento' ? '' : attr('Importe', tax.amount !== undefined ? decimal(tax.amount) : undefined)}/>`;
+  return `<${node}${attr('Base', decimalText(tax.base, 6))}${attr('Impuesto', tax.tax)}${attr('TipoFactor', tax.factorType)}${tax.factorType === 'Exento' ? '' : attr('TasaOCuota', tax.rateOrQuota !== undefined ? decimalText(tax.rateOrQuota, 6) : undefined)}${tax.factorType === 'Exento' ? '' : attr('Importe', tax.amount !== undefined ? decimalText(tax.amount, 6) : undefined)}/>`;
 }
 
 function renderConcept(concept: FiscalConcept): string {
   const transfers = (concept.taxes ?? []).filter((tax) => tax.kind === 'TRANSFER');
   const withholdings = (concept.taxes ?? []).filter((tax) => tax.kind === 'WITHHOLDING');
   const taxes = !transfers.length && !withholdings.length ? '' : `<cfdi:Impuestos>${transfers.length ? `<cfdi:Traslados>${transfers.map(renderConceptTax).join('')}</cfdi:Traslados>` : ''}${withholdings.length ? `<cfdi:Retenciones>${withholdings.map(renderConceptTax).join('')}</cfdi:Retenciones>` : ''}</cfdi:Impuestos>`;
-  return `<cfdi:Concepto${attr('ClaveProdServ', concept.productServiceKey)}${attr('Cantidad', decimal(concept.quantity))}${attr('ClaveUnidad', concept.unitKey)}${attr('Descripcion', concept.description)}${attr('ValorUnitario', decimal(concept.unitPrice))}${attr('Importe', decimal(concept.amount))}${attr('Descuento', concept.discount !== undefined ? decimal(concept.discount) : undefined)}${attr('ObjetoImp', concept.taxObject)}>${taxes}</cfdi:Concepto>`;
+  return `<cfdi:Concepto${attr('ClaveProdServ', concept.productServiceKey)}${attr('Cantidad', decimalText(concept.quantity, 6))}${attr('ClaveUnidad', concept.unitKey)}${attr('Descripcion', concept.description)}${attr('ValorUnitario', decimalText(concept.unitPrice, 6))}${attr('Importe', decimalText(concept.amount, 6))}${attr('Descuento', concept.discount !== undefined ? decimalText(concept.discount, 6) : undefined)}${attr('ObjetoImp', concept.taxObject)}>${taxes}</cfdi:Concepto>`;
 }
 
 function renderPaymentConcept(): string {
@@ -41,33 +40,33 @@ function aggregateTaxes(document: NormalizedCfdiDocument): string {
   const withholdings = all.filter((tax) => tax.kind === 'WITHHOLDING');
   if (!transfers.length && !withholdings.length) return '';
 
-  const groups = new Map<string, FiscalTax & { amount: number; base: number }>();
+  const groups = new Map<string, { tax: FiscalTax; amount: ReturnType<typeof D>; base: ReturnType<typeof D> }>();
   for (const tax of transfers) {
     const key = `${tax.tax}|${tax.factorType}|${tax.rateOrQuota ?? ''}`;
-    const current = groups.get(key) ?? { ...tax, base: 0, amount: 0 };
-    current.base += tax.base;
-    current.amount += tax.amount ?? 0;
+    const current = groups.get(key) ?? { tax, base: D(0), amount: D(0) };
+    current.base = current.base.plus(D(tax.base));
+    current.amount = current.amount.plus(D(tax.amount ?? 0));
     groups.set(key, current);
   }
-  const retentionGroups = new Map<string, number>();
-  for (const tax of withholdings) retentionGroups.set(tax.tax, (retentionGroups.get(tax.tax) ?? 0) + (tax.amount ?? 0));
+  const retentionGroups = new Map<string, ReturnType<typeof D>>();
+  for (const tax of withholdings) retentionGroups.set(tax.tax, (retentionGroups.get(tax.tax) ?? D(0)).plus(D(tax.amount ?? 0)));
 
-  const totalTransferred = transfers.reduce((sum, tax) => sum + (tax.amount ?? 0), 0);
-  const totalWithheld = withholdings.reduce((sum, tax) => sum + (tax.amount ?? 0), 0);
+  const totalTransferred = add(...transfers.map((tax) => tax.amount ?? 0));
+  const totalWithheld = add(...withholdings.map((tax) => tax.amount ?? 0));
 
-  return `<cfdi:Impuestos${attr('TotalImpuestosRetenidos', withholdings.length ? money(totalWithheld) : undefined)}${attr('TotalImpuestosTrasladados', transfers.length ? money(totalTransferred) : undefined)}>${withholdings.length ? `<cfdi:Retenciones>${[...retentionGroups].map(([tax, amount]) => `<cfdi:Retencion Impuesto="${tax}" Importe="${money(amount)}"/>`).join('')}</cfdi:Retenciones>` : ''}${transfers.length ? `<cfdi:Traslados>${[...groups.values()].map((tax) => `<cfdi:Traslado${attr('Base', money(tax.base))}${attr('Impuesto', tax.tax)}${attr('TipoFactor', tax.factorType)}${tax.factorType === 'Exento' ? '' : attr('TasaOCuota', tax.rateOrQuota !== undefined ? decimal(tax.rateOrQuota) : undefined)}${tax.factorType === 'Exento' ? '' : attr('Importe', money(tax.amount))}/>`).join('')}</cfdi:Traslados>` : ''}</cfdi:Impuestos>`;
+  return `<cfdi:Impuestos${attr('TotalImpuestosRetenidos', withholdings.length ? moneyText(totalWithheld) : undefined)}${attr('TotalImpuestosTrasladados', transfers.length ? moneyText(totalTransferred) : undefined)}>${withholdings.length ? `<cfdi:Retenciones>${[...retentionGroups].map(([tax, amount]) => `<cfdi:Retencion Impuesto="${tax}" Importe="${moneyText(amount)}"/>`).join('')}</cfdi:Retenciones>` : ''}${transfers.length ? `<cfdi:Traslados>${[...groups.values()].map(({ tax, base, amount }) => `<cfdi:Traslado${attr('Base', moneyText(base))}${attr('Impuesto', tax.tax)}${attr('TipoFactor', tax.factorType)}${tax.factorType === 'Exento' ? '' : attr('TasaOCuota', tax.rateOrQuota !== undefined ? decimalText(tax.rateOrQuota, 6) : undefined)}${tax.factorType === 'Exento' ? '' : attr('Importe', moneyText(amount))}/>`).join('')}</cfdi:Traslados>` : ''}</cfdi:Impuestos>`;
 }
 
-function paymentTotal(payment: PaymentEntry): string {
-  return money(payment.amount * (payment.exchangeRate ?? 1));
+function paymentTotal(payment: PaymentEntry) {
+  return mul(payment.amount, payment.exchangeRate ?? 1);
 }
 
 function renderPayments(document: NormalizedCfdiDocument): string {
   const payments = document.payments ?? [];
   if (!payments.length) throw new Error('CFDI tipo P requiere pagos antes de renderizar XML.');
-  const total = payments.reduce((sum, payment) => sum + payment.amount * (payment.exchangeRate ?? 1), 0);
-  const paymentNodes = payments.map((payment) => `<pago20:Pago${attr('FechaPago', payment.paymentDate)}${attr('FormaDePagoP', payment.paymentForm)}${attr('MonedaP', payment.currency)}${attr('TipoCambioP', payment.currency !== 'MXN' ? payment.exchangeRate : undefined)}${attr('Monto', decimal(payment.amount))}>${payment.relatedDocuments.map((doc) => `<pago20:DoctoRelacionado${attr('IdDocumento', doc.uuid)}${attr('MonedaDR', doc.currency)}${attr('EquivalenciaDR', doc.currency !== payment.currency ? doc.equivalence : undefined)}${attr('NumParcialidad', doc.installmentNumber)}${attr('ImpSaldoAnt', decimal(doc.previousBalance))}${attr('ImpPagado', decimal(doc.paidAmount))}${attr('ImpSaldoInsoluto', decimal(doc.remainingBalance))}${attr('ObjetoImpDR', doc.taxObject)}/>`).join('')}</pago20:Pago>`).join('');
-  return `<pago20:Pagos Version="2.0"><pago20:Totales MontoTotalPagos="${money(total)}"/>${paymentNodes}</pago20:Pagos>`;
+  const total = add(...payments.map(paymentTotal));
+  const paymentNodes = payments.map((payment) => `<pago20:Pago${attr('FechaPago', payment.paymentDate)}${attr('FormaDePagoP', payment.paymentForm)}${attr('MonedaP', payment.currency)}${attr('TipoCambioP', payment.currency !== 'MXN' ? decimalText(payment.exchangeRate ?? 1, 10) : undefined)}${attr('Monto', decimalText(payment.amount, 6))}>${payment.relatedDocuments.map((doc) => `<pago20:DoctoRelacionado${attr('IdDocumento', doc.uuid)}${attr('MonedaDR', doc.currency)}${attr('EquivalenciaDR', doc.currency !== payment.currency ? decimalText(doc.equivalence ?? 1, 10) : undefined)}${attr('NumParcialidad', doc.installmentNumber)}${attr('ImpSaldoAnt', decimalText(doc.previousBalance, 6))}${attr('ImpPagado', decimalText(doc.paidAmount, 6))}${attr('ImpSaldoInsoluto', decimalText(doc.remainingBalance, 6))}${attr('ObjetoImpDR', doc.taxObject)}/>`).join('')}</pago20:Pago>`).join('');
+  return `<pago20:Pagos Version="2.0"><pago20:Totales MontoTotalPagos="${moneyText(total)}"/>${paymentNodes}</pago20:Pagos>`;
 }
 
 function renderRelated(document: NormalizedCfdiDocument): string {
@@ -89,11 +88,11 @@ export class Cfdi40XmlRenderer implements FinalCfdiXmlRenderer {
   async render(document: NormalizedCfdiDocument, context: RenderContext): Promise<string> {
     const schemaIds = ['CFDI_4_0', ...(document.type === 'P' ? ['PAGOS_2_0'] : []), ...(document.complementIds ?? [])];
     const namespaces = document.type === 'P' ? ' xmlns:pago20="http://www.sat.gob.mx/Pagos20"' : '';
-    const subtotal = document.type === 'P' ? '0' : decimal(document.subtotal);
-    const total = document.type === 'P' ? '0' : decimal(document.total);
+    const subtotal = document.type === 'P' ? '0' : decimalText(document.subtotal, 6);
+    const total = document.type === 'P' ? '0' : decimalText(document.total, 6);
     const currency = document.type === 'P' ? 'XXX' : document.currency;
 
-    const root = `<?xml version="1.0" encoding="UTF-8"?><cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"${namespaces} xsi:schemaLocation="${esc(schemaLocationFor(schemaIds))}" Version="4.0"${attr('Serie', document.series)}${attr('Folio', document.folio)}${attr('Fecha', document.issueDate)}${attr('Sello', context.seal)}${attr('FormaPago', document.type === 'P' || document.type === 'T' ? undefined : document.paymentForm)}${attr('NoCertificado', context.certificateNumber)}${attr('Certificado', context.certificateBase64)}${attr('SubTotal', subtotal)}${attr('Descuento', document.type === 'P' || document.type === 'T' ? undefined : document.discount)}${attr('Moneda', currency)}${attr('TipoCambio', document.type !== 'P' && document.currency !== 'MXN' && document.currency !== 'XXX' ? document.exchangeRate : undefined)}${attr('Total', total)}${attr('TipoDeComprobante', document.type)}${attr('Exportacion', document.exportation ?? '01')}${attr('MetodoPago', document.type === 'P' || document.type === 'T' ? undefined : document.paymentMethod)}${attr('LugarExpedicion', document.expeditionPostalCode)}${attr('Confirmacion', document.confirmation)}>`;
+    const root = `<?xml version="1.0" encoding="UTF-8"?><cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"${namespaces} xsi:schemaLocation="${esc(schemaLocationFor(schemaIds))}" Version="4.0"${attr('Serie', document.series)}${attr('Folio', document.folio)}${attr('Fecha', document.issueDate)}${attr('Sello', context.seal)}${attr('FormaPago', document.type === 'P' || document.type === 'T' ? undefined : document.paymentForm)}${attr('NoCertificado', context.certificateNumber)}${attr('Certificado', context.certificateBase64)}${attr('SubTotal', subtotal)}${attr('Descuento', document.type === 'P' || document.type === 'T' || document.discount === undefined ? undefined : decimalText(document.discount, 6))}${attr('Moneda', currency)}${attr('TipoCambio', document.type !== 'P' && document.currency !== 'MXN' && document.currency !== 'XXX' ? decimalText(document.exchangeRate ?? 1, 10) : undefined)}${attr('Total', total)}${attr('TipoDeComprobante', document.type)}${attr('Exportacion', document.exportation ?? '01')}${attr('MetodoPago', document.type === 'P' || document.type === 'T' ? undefined : document.paymentMethod)}${attr('LugarExpedicion', document.expeditionPostalCode)}${attr('Confirmacion', document.confirmation)}>`;
 
     const issuer = `<cfdi:Emisor${attr('Rfc', document.issuer.rfc)}${attr('Nombre', document.issuer.name)}${attr('RegimenFiscal', document.issuer.fiscalRegime)}/>`;
     const receiver = `<cfdi:Receptor${attr('Rfc', document.receiver.rfc)}${attr('Nombre', document.receiver.name)}${attr('DomicilioFiscalReceptor', document.receiver.postalCode)}${attr('ResidenciaFiscal', document.receiver.fiscalResidenceCountry)}${attr('NumRegIdTrib', document.receiver.foreignTaxId)}${attr('RegimenFiscalReceptor', document.receiver.fiscalRegime)}${attr('UsoCFDI', document.cfdiUse)}/>`;
