@@ -2,9 +2,9 @@ name: XOLUM Fiscal CI
 
 on:
   push:
-    branches: [main, hardening/**]
+    branches: [main, hardening/**, dev/**]
   pull_request:
-    branches: [main]
+    branches: [main, hardening/**]
 
 permissions:
   contents: read
