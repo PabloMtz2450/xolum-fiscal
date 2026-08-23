@@ -8,14 +8,14 @@ Decimal.set({ precision: 40, rounding: Decimal.ROUND_HALF_UP });
 
 export type DecimalInput = Decimal.Value;
 
-export const D = (value: DecimalInput | undefined | null) => new Decimal(value ?? 0);
+export const D = (value: DecimalInput | undefined | null): Decimal => new Decimal(value ?? 0);
 export const eq = (a: DecimalInput, b: DecimalInput) => D(a).eq(D(b));
 export const gt = (a: DecimalInput, b: DecimalInput) => D(a).gt(D(b));
 export const gte = (a: DecimalInput, b: DecimalInput) => D(a).gte(D(b));
 export const lte = (a: DecimalInput, b: DecimalInput) => D(a).lte(D(b));
-export const add = (...values: DecimalInput[]) => values.reduce((acc, value) => acc.plus(D(value)), new Decimal(0));
-export const sub = (a: DecimalInput, b: DecimalInput) => D(a).minus(D(b));
-export const mul = (a: DecimalInput, b: DecimalInput) => D(a).mul(D(b));
+export const add = (...values: DecimalInput[]): Decimal => values.reduce<Decimal>((acc, value) => acc.plus(D(value)), new Decimal(0));
+export const sub = (a: DecimalInput, b: DecimalInput): Decimal => D(a).minus(D(b));
+export const mul = (a: DecimalInput, b: DecimalInput): Decimal => D(a).mul(D(b));
 
 /** Comparación fiscal con tolerancia explícita, nunca por floating point. */
 export function within(a: DecimalInput, b: DecimalInput, tolerance: DecimalInput = '0.000001'): boolean {
