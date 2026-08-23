@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: xolum-fiscal-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: xolum_fiscal
+      POSTGRES_USER: xolum
+      POSTGRES_PASSWORD: xolum_local_2026
+    ports:
+      - "54329:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xolum -d xolum_fiscal"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - xolum_pgdata:/var/lib/postgresql/data
+      - ./db/migrations/001_preproduction_hardening.sql:/docker-entrypoint-initdb.d/001_preproduction_hardening.sql:ro
+      - ./db/migrations/002_sales_lite.sql:/docker-entrypoint-initdb.d/002_sales_lite.sql:ro
+      - ./db/seeds/800_local_role.sql:/docker-entrypoint-initdb.d/800_local_role.sql:ro
+      - ./db/seeds/900_local_seed.sql:/docker-entrypoint-initdb.d/900_local_seed.sql:ro
+
+volumes:
+  xolum_pgdata:
