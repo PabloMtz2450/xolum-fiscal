@@ -1,7 +1,7 @@
-import type { BankMovement, Receivable, ReconciliationSuggestion } from './contracts';
+import type { BankMovement, MatchMode, Receivable, ReconciliationSuggestion } from './contracts';
 
 export function suggestReconciliation(movement: BankMovement, receivables: Receivable[]): ReconciliationSuggestion[] {
-  return receivables.map((r) => {
+  return receivables.map((r): ReconciliationSuggestion => {
     let confidence = 0;
     const reasons: string[] = [];
     if (Math.abs(r.balance - movement.amount) < 0.01) { confidence += 45; reasons.push('importe exacto'); }
@@ -9,7 +9,7 @@ export function suggestReconciliation(movement: BankMovement, receivables: Recei
       confidence += 45; reasons.push('referencia identificada');
     }
     if (movement.senderRfc && movement.senderRfc.length >= 12) { confidence += 10; reasons.push('RFC disponible'); }
-    const mode = confidence >= 95 && reasons.includes('referencia identificada') ? 'AUTOMATIC' : confidence >= 55 ? 'ASSISTED' : 'MANUAL';
+    const mode: MatchMode = confidence >= 95 && reasons.includes('referencia identificada') ? 'AUTOMATIC' : confidence >= 55 ? 'ASSISTED' : 'MANUAL';
     return { movementId: movement.id, receivableId: r.id, confidence, mode, reasons };
   }).sort((a,b) => b.confidence - a.confidence);
 }
